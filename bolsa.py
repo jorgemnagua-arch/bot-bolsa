@@ -45,7 +45,7 @@ def obtener_precio_manual(ticker):
     except:
         return None
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     # Arrancamos la web falsa para Render
     keep_alive()
     
