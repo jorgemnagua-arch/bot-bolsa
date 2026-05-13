@@ -4,12 +4,10 @@ import os
 from flask import Flask
 from threading import Thread
 
-# --- PARCHE PARA RENDER ---
+# --- CONFIGURACIÓN DE RENDER ---
 app = Flask('')
-
 @app.route('/')
-def home():
-    return "Bot de Bolsa Activo"
+def home(): return "Bot de Bolsa XTB Activo"
 
 def run():
     port = int(os.environ.get("PORT", 10000))
@@ -19,8 +17,8 @@ def keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
-# --------------------------
 
+# --- DATOS DE TELEGRAM ---
 TOKEN = '8108194946:AAGKlV3oKLGf63zlEmyG-DJ9JuMghlTQRKk'
 CHAT_ID = '8297764780'
 
@@ -28,50 +26,74 @@ def enviar_telegram(msj):
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         requests.post(url, json={"chat_id": CHAT_ID, "text": msj, "parse_mode": "Markdown"}, timeout=10)
-    except Exception as e:
-        print(f"Error Telegram: {e}")
+    except: pass
 
-def obtener_precio(ticker):
+def obtener_datos_mercado(ticker):
     try:
-        # Usamos una API más directa para evitar bloqueos de Yahoo
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}.US?interval=1m&range=1d"
         headers = {'User-Agent': 'Mozilla/5.0'}
         r = requests.get(url, headers=headers, timeout=10)
-        data = r.json()
-        precio = data['chart']['result'][0]['meta']['regularMarketPrice']
-        return float(precio)
-    except Exception as e:
-        print(f"Error Ticker {ticker}: {e}")
-        return None
+        data = r.json()['chart']['result'][0]
+        
+        precio_actual = data['meta']['regularMarketPrice']
+        
+        # --- CÁLCULO VWAP ---
+        candles = data['indicators']['quote'][0]
+        volumes = candles['volume']
+        highs = candles['high']
+        lows = candles['low']
+        closes = candles['close']
+        
+        suma_pv = 0
+        vol_total = 0
+        
+        for i in range(len(volumes)):
+            if volumes[i] and highs[i] and lows[i] and closes[i]:
+                tp = (highs[i] + lows[i] + closes[i]) / 3
+                suma_pv += tp * volumes[i]
+                vol_total += volumes[i]
+        
+        vwap = suma_pv / vol_total if vol_total > 0 else None
+        return precio_actual, vwap, vol_total
+    except:
+        return None, None, None
 
 if __name__ == "__main__":
     keep_alive()
     
-    # Lista de tus tickers
-    tickers = ["CCCC", "ABAT", "BAK", "CMPS", "FFIE", "KOSS"]
+    # LISTA EXTRAÍDA DE TUS CAPTURAS
+    tickers = [
+        "ADCT", "ADSE", "AGEN", "ASNS", "ALVO", "AMC", "AEMD", "APP", "AQST", "AMRE", 
+        "ARRY", "ALOT", "ATRA", "ALTI", "BRKM", "BCRX", "BHG", "BLND", "BLLC", "CCO", 
+        "CHRS", "CLNE", "CMPR", "CPS", "CLAR", "TRD", "RARE", "RNW", "RMNI", "CRTX", 
+        "REIN", "RRGB", "SABR", "SATL", "STNE", "SLNC", "STEM", "STRO", "XERS", "ZIP"
+    ]
     
-    # Mensaje de confirmación inmediata
-    enviar_telegram("⚡ *BOT REINICIADO*\nProbando conexión con el mercado...")
+    enviar_telegram("🚀 *RADAR XTB INICIADO*\nMonitoreando 40 Small Caps...")
     
-    # Guardamos precios iniciales
     precios_iniciales = {}
     for t in tickers:
-        p = obtener_precio(t)
-        if p:
-            precios_iniciales[t] = p
-            print(f"Cargado {t}: {p}")
+        p, v, vol = obtener_datos_mercado(t)
+        if p: precios_iniciales[t] = p
     
     while True:
         for t in tickers:
-            precio_actual = obtener_precio(t)
+            precio, vwap, vol_acumulado = obtener_datos_mercado(t)
             p_ini = precios_iniciales.get(t)
             
-            if precio_actual and p_ini:
-                cambio = ((precio_actual - p_ini) / p_ini) * 100
+            if precio and p_ini and vwap and vol_acumulado:
+                cambio = ((precio - p_ini) / p_ini) * 100
                 
-                # UMBRAL DE PRUEBA: 0.05%
-                if abs(cambio) > 1.5: 
-                    enviar_telegram(f"💹 *MOVIMIENTO DETECTADO\nTicker: *{t}**\nPrecio: ${precio_actual}\nVar: {cambio:.2f}%")
-                    precios_iniciales[t] = precio_actual
+                # FILTRO: Cambio > 1.5% Y Volumen > 50,000 acciones
+                if abs(cambio) > 1.5 and vol_acumulado > 50000:
+                    posicion = "🟢 ARRIBA" if precio > vwap else "🔴 ABAJO"
+                    msg = (f"💹 *ALERTA: ${t}*\n"
+                           f"Precio: ${precio:.3f}\n"
+                           f"Var: {cambio:.2f}%\n"
+                           f"Vol: {vol_acumulado:,} 📊\n"
+                           f"VWAP: ${vwap:.3f} ({posicion})")
+                    
+                    enviar_telegram(msg)
+                    precios_iniciales[t] = precio # Actualizamos base tras alerta
             
-        time.sleep(30) # Revisa cada 30 segundos
+        time.sleep(60) # Espera 1 minuto entre rondas
