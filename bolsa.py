@@ -61,7 +61,7 @@ if __name__ == "__main__":
             
             if precio_actual and p_ini:
                 cambio = ((precio_actual - p_ini) / p_ini) * 100
-                if abs(cambio) > 1.5: 
+                if abs(cambio) > 0.01: 
                     enviar_telegram(f"🚀 *MOVIMIENTO: ${t}*\nPrecio: ${precio_actual}\nVar: {cambio:.2f}%")
                     precios_iniciales[t] = precio_actual
             
