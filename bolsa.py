@@ -70,7 +70,7 @@ if __name__ == "__main__":
                 cambio = ((precio_actual - p_ini) / p_ini) * 100
                 
                 # UMBRAL DE PRUEBA: 0.05%
-                if abs(cambio) > 0.05: 
+                if abs(cambio) > 1.5: 
                     enviar_telegram(f"💹 *MOVIMIENTO DETECTADO\nTicker: *{t}**\nPrecio: ${precio_actual}\nVar: {cambio:.2f}%")
                     precios_iniciales[t] = precio_actual
             
