@@ -1,8 +1,24 @@
 import requests
 import time
 import re
+from flask import Flask
+from threading import Thread
 
-# --- CONFIGURACIÓN ---
+# --- TRUCO PARA RENDER ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot vivo"
+
+def run():
+    app.run(host='0.0.0.0', port=10000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# -------------------------
+
 TOKEN = '8108194946:AAGKlV3oKLGf63zlEmyG-DJ9JuMghlTQRKk'
 CHAT_ID = '8297764780'
 
@@ -13,13 +29,10 @@ def enviar_telegram(msj):
     except: pass
 
 def obtener_precio_manual(ticker):
-    """Extrae el precio raspando Yahoo Finance directamente."""
     try:
         url = f"https://finance.yahoo.com/quote/{ticker}"
         headers = {'User-Agent': 'Mozilla/5.0'}
         response = requests.get(url, headers=headers, timeout=5)
-        
-        # Buscamos el precio en el HTML de la página
         match = re.search(f'data-symbol="{ticker}" [^>]*value="([\d\.]+)"', response.text)
         if match:
             return float(match.group(1))
@@ -28,8 +41,11 @@ def obtener_precio_manual(ticker):
         return None
 
 if __name__ == "__main__":
+    # Arrancamos la "web falsa" antes del bot
+    keep_alive()
+    
     tickers = ["CCCC", "ABAT", "BAK", "CMPS", "FFIE", "KOSS"]
-    enviar_telegram("🚀 *BOT INICIADO EN RENDER*\nEscaneando mercado...")
+    enviar_telegram("🚀 *BOT REINICIADO (PARCHE RENDER)*\nEscaneando...")
     
     precios_iniciales = {t: obtener_precio_manual(t) for t in tickers}
     
@@ -44,4 +60,4 @@ if __name__ == "__main__":
                     enviar_telegram(f"🚀 *MOVIMIENTO: ${t}*\nPrecio: ${precio_actual}\nVar: {cambio:.2f}%")
                     precios_iniciales[t] = precio_actual
             
-        time.sleep(60) # Espera 1 minuto para no saturar
+        time.sleep(60)
