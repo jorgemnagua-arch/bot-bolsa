@@ -1,23 +1,27 @@
 import requests
 import time
 import re
+import os
 from flask import Flask
 from threading import Thread
 
-# --- TRUCO PARA RENDER ---
+# --- PARCHE PARA QUE RENDER NO SE APAGUE ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot vivo"
+    return "Bot de Bolsa Activo"
 
 def run():
+    # Render asigna el puerto automáticamente, esto lo lee
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
+    t.daemon = True
     t.start()
-# -------------------------
+# ------------------------------------------
 
 TOKEN = '8108194946:AAGKlV3oKLGf63zlEmyG-DJ9JuMghlTQRKk'
 CHAT_ID = '8297764780'
@@ -26,7 +30,8 @@ def enviar_telegram(msj):
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         requests.post(url, json={"chat_id": CHAT_ID, "text": msj, "parse_mode": "Markdown"}, timeout=5)
-    except: pass
+    except:
+        pass
 
 def obtener_precio_manual(ticker):
     try:
@@ -40,12 +45,12 @@ def obtener_precio_manual(ticker):
     except:
         return None
 
-if __name__ == "__main__":
-    # Arrancamos la "web falsa" antes del bot
+if _name_ == "_main_":
+    # Arrancamos la web falsa para Render
     keep_alive()
     
     tickers = ["CCCC", "ABAT", "BAK", "CMPS", "FFIE", "KOSS"]
-    enviar_telegram("🚀 *BOT REINICIADO (PARCHE RENDER)*\nEscaneando...")
+    enviar_telegram("🚀 *BOT VIVO Y BLINDADO*\nEscaneando con puerto dinámico...")
     
     precios_iniciales = {t: obtener_precio_manual(t) for t in tickers}
     
